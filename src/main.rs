@@ -29,6 +29,15 @@ impl Users {
         println!("User {} added.", name);
     }
 
+    fn remove_user(&mut self, name: String) {
+        if !self.users.contains_key(&name) {
+            println!("User {} does not exist.", name);
+            return;
+        }
+        self.users.remove(&name);
+        println!("User {} removed.", name);
+    }
+
     fn record_payment(&mut self, user: &str, amount: f64) {
         match self.users.get_mut(user) {
             Some(u) => {
@@ -73,15 +82,21 @@ fn main() {
         users: HashMap::new(),
     };
     users.add_user(String::from("A"));
-    users.add_user(String::from("A"));
     users.add_user(String::from("B"));
     users.add_user(String::from("C"));
     users.record_payment("A", 60.0);
     users.record_payment("B", 30.0);
-    users.record_payment("D", 30.0);
+    users.record_payment("C", 30.0);
+
     users.remove_payment("B", 10.0);
     users.remove_payment("A", 20.0);
     users.remove_payment("D", 20.0);
+    
+    users.calculate_total_payments();
+    println!("users {:#?}", users.users);
+
+    users.remove_user(String::from("B"));
+    users.record_payment("B", 30.0);
     users.calculate_total_payments();
 
     println!("users {:#?}", users.users);
