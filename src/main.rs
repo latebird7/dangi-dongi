@@ -54,6 +54,10 @@ impl Users {
         match self.users.get_mut(user) {
             Some(u) => {
                 u.amount_paid -= amount;
+                if u.amount_paid < 0.0 {
+                    println!("Amount paid for user {} is negative. Setting to 0.", user);
+                    u.amount_paid = 0.0;
+                }
                 println!("{} for user {} removed.", amount, user);
             }
             None => {
@@ -88,8 +92,7 @@ fn main() {
     users.record_payment("B", 30.0);
     users.record_payment("C", 30.0);
 
-    users.remove_payment("B", 10.0);
-    users.remove_payment("A", 20.0);
+    users.remove_payment("B", 60.0);
     users.remove_payment("D", 20.0);
     
     users.calculate_total_payments();
