@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, hash::Hash};
 use std::fs;
+use std::{collections::HashMap};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
@@ -86,13 +86,25 @@ impl Users {
             let mut creditors: Vec<(String, f64)> = self
                 .users
                 .iter()
-                .filter_map(|(name, u)| if u.net_balance > eps { Some((name.clone(), u.net_balance)) } else { None })
+                .filter_map(|(name, u)| {
+                    if u.net_balance > eps {
+                        Some((name.clone(), u.net_balance))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
 
             let mut debtors: Vec<(String, f64)> = self
                 .users
                 .iter()
-                .filter_map(|(name, u)| if u.net_balance < -eps { Some((name.clone(), u.net_balance)) } else { None })
+                .filter_map(|(name, u)| {
+                    if u.net_balance < -eps {
+                        Some((name.clone(), u.net_balance))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
 
             creditors.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -110,8 +122,12 @@ impl Users {
                 creditors[i].1 -= transfer;
                 debtors[j].1 += transfer; // debtors store negative values
 
-                if creditors[i].1 <= eps { i += 1; }
-                if debtors[j].1 >= -eps { j += 1; }
+                if creditors[i].1 <= eps {
+                    i += 1;
+                }
+                if debtors[j].1 >= -eps {
+                    j += 1;
+                }
             }
 
             for (_, u) in &mut self.users {
@@ -136,8 +152,6 @@ impl Users {
             Err(e) => println!("Error saving users: {}", e),
         }
     }
-
-
 }
 
 fn load_from_file(file_path: &str) -> Option<Users> {
