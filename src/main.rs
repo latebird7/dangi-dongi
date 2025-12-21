@@ -119,6 +119,14 @@ impl Users {
             }
         }
     }
+
+    fn settle_up(&mut self) {
+        for (_, u) in &mut self.users {
+            u.net_balance = 0.0;
+            u.amount_paid = 0.0;
+        }
+        println!("All users have been settled up!");
+    }
 }
 
 fn main() {
@@ -133,5 +141,8 @@ fn main() {
     users.record_payment("C", 40.0);
     
     users.calculate_total_payments();
+
+    users.settle_up();
+    println!("{:#?}", users.users);
 
 }
