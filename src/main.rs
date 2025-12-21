@@ -1,13 +1,15 @@
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, hash::Hash};
+use std::fs;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
     name: String,
     amount_paid: f64,
     net_balance: f64,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Users {
     users: HashMap<String, User>,
 }
@@ -127,22 +129,40 @@ impl Users {
         }
         println!("All users have been settled up!");
     }
+
+    fn save_to_file(&self, file_path: &str) {
+        match serde_json::to_writer_pretty(std::fs::File::create(file_path).unwrap(), &self) {
+            Ok(_) => println!("Saved the info to the file."),
+            Err(e) => println!("Error saving users: {}", e),
+        }
+    }
+
+
+}
+
+fn load_from_file(file_path: &str) -> Option<Users> {
+    let data = fs::read_to_string(file_path).expect("Unable to read file");
+    let users_str: Users = match serde_json::from_str(&data) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("Error parsing JSON: {}", e);
+            return None;
+        }
+    };
+    Some(users_str)
 }
 
 fn main() {
     let mut users = Users {
         users: HashMap::new(),
     };
-    users.add_user(String::from("A"));
+    users.add_user(String::from("AAA"));
     users.add_user(String::from("B"));
     users.add_user(String::from("C"));
-    users.record_payment("A", 60.0);
+    users.record_payment("AAA", 60.0);
     users.record_payment("B", 30.0);
     users.record_payment("C", 40.0);
-    
+
     users.calculate_total_payments();
-
-    users.settle_up();
-    println!("{:#?}", users.users);
-
+    users.save_to_file("./db.json");
 }
