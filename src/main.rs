@@ -4,7 +4,6 @@ use std::{collections::HashMap};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
-    name: String,
     amount_paid: f64,
     net_balance: f64,
 }
@@ -23,7 +22,6 @@ impl Users {
         self.users.insert(
             name.clone(),
             User {
-                name: name.clone(),
                 amount_paid: 0.0,
                 net_balance: 0.0,
             },
