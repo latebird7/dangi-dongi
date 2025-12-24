@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::{collections::HashMap};
+use std::collections::HashMap;
+use std::{fs, vec};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
@@ -11,9 +11,30 @@ struct User {
 #[derive(Serialize, Deserialize, Debug)]
 struct Users {
     users: HashMap<String, User>,
+    transactions: Vec<Transaction>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Participant {
+    name: String,
+    weight: u8,
+    fair_share: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Transaction {
+    amount: f64,
+    participants: Vec<Participant>,
 }
 
 impl Users {
+    fn new() -> Self {
+        Users {
+            users: HashMap::new(),
+            transactions: Vec::new(),
+        }
+    }
+
     fn add_user(&mut self, name: String) {
         if self.users.contains_key(&name) {
             println!("User {} already exists.", name);
@@ -43,6 +64,48 @@ impl Users {
             Some(u) => {
                 u.amount_paid += amount;
                 println!("{} for user {} added.", amount, user);
+                self.transactions.push(Transaction {
+                    amount,
+                    participants: self
+                        .users
+                        .keys()
+                        .map(|k| Participant {
+                            name: k.clone(),
+                            weight: 1,
+                            fair_share: Some(amount / self.users.len() as f64),
+                        })
+                        .collect(),
+                });
+            }
+            None => {
+                println!("User {} not found.", user);
+            }
+        }
+    }
+
+    fn record_weighted_payment(&mut self, user: &str, mut transaction: Transaction) {
+        let amount = transaction.amount;
+        let participants_key = transaction
+            .participants
+            .iter()
+            .map(|p| &p.name)
+            .collect::<Vec<&String>>();
+        let users_key = self.users.keys().collect::<Vec<&String>>();
+
+        if !(participants_key.len() == users_key.len()
+            && participants_key.iter().all(|k| users_key.contains(k)))
+        {
+            println!("Participants are invalid.");
+            return;
+        }
+
+        calculate_fair_shares(&mut transaction);
+
+        match self.users.get_mut(user) {
+            Some(u) => {
+                u.amount_paid += amount;
+                println!("{} for user {} added.", amount, user);
+                self.transactions.push(transaction);
             }
             None => {
                 println!("User {} not found.", user);
@@ -66,17 +129,20 @@ impl Users {
         }
     }
 
-    fn calculate_total_payments(&mut self) -> () {
+    fn calculate_total_payments(&mut self) {
         if self.users.len() < 2 {
             println!("Not enough users to calculate payments.");
             return;
         }
         let total: f64 = self.users.values().map(|u| u.amount_paid).sum();
-        dbg!(total);
-        let share_per_user = total / self.users.len() as f64;
 
-        for (_, value) in &mut self.users {
-            value.net_balance = value.amount_paid - share_per_user;
+
+        for (name, user) in &mut self.users {
+            let mut total_fair_share = 0.0;
+            for transaction in &self.transactions {
+                total_fair_share += transaction.participants.iter().find(|p| p.name == *name).unwrap().fair_share.unwrap_or(0.0);
+            }
+            user.net_balance = user.amount_paid - total_fair_share;
         }
 
         {
@@ -141,6 +207,7 @@ impl Users {
             u.net_balance = 0.0;
             u.amount_paid = 0.0;
         }
+        self.transactions.clear();
         println!("All users have been settled up!");
     }
 
@@ -164,17 +231,49 @@ fn load_from_file(file_path: &str) -> Option<Users> {
     Some(users_str)
 }
 
+fn calculate_fair_shares(transaction: &mut Transaction) {
+    let amount = transaction.amount;
+    let total_weight: u32 = transaction
+        .participants
+        .iter()
+        .map(|p| p.weight)
+        .sum::<u8>() as u32;
+    for p in &mut transaction.participants {
+        p.fair_share = Some(amount * (p.weight as f64) / (total_weight as f64));
+    }
+}
+
 fn main() {
-    let mut users = Users {
-        users: HashMap::new(),
-    };
-    users.add_user(String::from("AAA"));
+    let mut users = Users::new();
+    users.add_user(String::from("A"));
     users.add_user(String::from("B"));
     users.add_user(String::from("C"));
-    users.record_payment("AAA", 60.0);
+    users.record_payment("A", 60.0);
     users.record_payment("B", 30.0);
-    users.record_payment("C", 40.0);
-
+    users.record_weighted_payment(
+        "C",
+        Transaction {
+            amount: 30.0,
+            participants: vec![
+                Participant {
+                    name: "A".to_string(),
+                    weight: 2,
+                    fair_share: None,
+                },
+                Participant {
+                    name: "B".to_string(),
+                    weight: 1,
+                    fair_share: None,
+                },
+                Participant {
+                    name: "C".to_string(),
+                    weight: 1,
+                    fair_share: None,
+                },
+            ],
+        },
+    );
     users.calculate_total_payments();
+    
     users.save_to_file("./db.json");
 }
