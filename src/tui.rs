@@ -2,9 +2,9 @@ use std::io;
 
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
 pub struct App {
@@ -86,17 +86,53 @@ impl App {
             .split(vertical_chunks[1]);
 
         // For users
-        let users_block = Block::default().borders(Borders::ALL).title(Span::styled(
-            " Users ",
-            Style::default().add_modifier(Modifier::BOLD),
-        ));
-        frame.render_widget(users_block, main_chunks[0]);
+        let users_block = Block::default()
+            .borders(Borders::ALL)
+            .title(Span::styled(
+                " Users ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ))
+            .padding(Padding {
+                left: 1,
+                right: 1,
+                top: 1,
+                bottom: 1,
+            });
+        let users_content = Paragraph::new(vec![Line::from("< press 'a' to add user >")])
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true });
+
+        let users_area = main_chunks[0];
+        let users_inner = users_block.inner(users_area);
+        frame.render_widget(users_block, users_area);
+
+        frame.render_widget(users_content, users_inner);
 
         // For transactions
-        let transactions_block = Block::default().borders(Borders::ALL).title(Span::styled(
-            " Transactions ",
-            Style::default().add_modifier(Modifier::BOLD),
-        ));
-        frame.render_widget(transactions_block, main_chunks[1]);
+        let transactions_block = Block::default()
+            .borders(Borders::ALL)
+            .title(Span::styled(
+                " Transactions ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ))
+            .padding(Padding {
+                left: 1,
+                right: 1,
+                top: 1,
+                bottom: 1,
+            });
+
+        let transaction_content = Paragraph::new(vec![Line::from(
+            "Please add at least two users to start recording transactions.",
+        )])
+        .add_modifier(Modifier::ITALIC)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true });
+
+        let transaction_area = main_chunks[1];
+        let transaction_inner = transactions_block.inner(transaction_area);
+
+        frame.render_widget(transactions_block, transaction_area);
+        frame.render_widget(transaction_content, transaction_inner);
     }
 }
