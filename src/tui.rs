@@ -23,7 +23,6 @@ pub fn start_tui() -> io::Result<()> {
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         while !self.exit {
-
             match crossterm::event::read()? {
                 crossterm::event::Event::Key(key_event) => self.handle_key_event(key_event)?,
                 _ => {}
@@ -36,9 +35,9 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) -> io::Result<()> {
-        if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q'){
+        if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q') {
             self.exit = true;
-        }        
+        }
 
         Ok(())
     }
@@ -55,11 +54,18 @@ impl App {
         ));
         frame.render_widget(block, size);
 
-        // Center area for welcome message
-        let chunks = Layout::default()
+        // Layout: vertical split for welcome and main area
+        let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .margin(2)
-            .constraints([Constraint::Percentage(100)].as_ref())
+            .horizontal_margin(2)
+            .vertical_margin(4)
+            .constraints(
+                [
+                    Constraint::Length(4), // Welcome message height
+                    Constraint::Min(0),    // Main area
+                ]
+                .as_ref(),
+            )
             .split(size);
 
         let welcome = Paragraph::new(vec![
@@ -68,12 +74,29 @@ impl App {
                 "Welcome to Dangi-Dongi!",
                 Style::default().add_modifier(Modifier::BOLD),
             )]),
-            Line::from(""),
-            Line::from("Press 'q' or Esc to quit."),
         ])
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true });
+        frame.render_widget(welcome, vertical_chunks[0]);
 
-        frame.render_widget(welcome, chunks[0]);
+        // Main area: horizontal split for Users and Transactions
+        let main_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(vertical_chunks[1]);
+
+        // For users
+        let users_block = Block::default().borders(Borders::ALL).title(Span::styled(
+            " Users ",
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+        frame.render_widget(users_block, main_chunks[0]);
+
+        // For transactions
+        let transactions_block = Block::default().borders(Borders::ALL).title(Span::styled(
+            " Transactions ",
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
+        frame.render_widget(transactions_block, main_chunks[1]);
     }
 }
