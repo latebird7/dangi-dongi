@@ -175,12 +175,22 @@ impl App {
                 bottom: 1,
             });
 
-        let transaction_content = Paragraph::new(vec![Line::from(
-            "Please add at least two users to start recording transactions.",
-        )])
-        .add_modifier(Modifier::ITALIC)
-        .alignment(Alignment::Left)
-        .wrap(Wrap { trim: true });
+        let (transaction_default_text, italic) = if self.users.list_users().len() > 1 {
+            ("< press 't' to add transaction >", false)
+        } else {
+            (
+                "Please add at least two users to start recording transactions.",
+                true,
+            )
+        };
+        let transaction_content = Paragraph::new(vec![Line::from(transaction_default_text)])
+            .add_modifier(if italic {
+                Modifier::ITALIC
+            } else {
+                Modifier::empty()
+            })
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true });
 
         let transaction_area = main_chunks[1];
         let transaction_inner = transactions_block.inner(transaction_area);
