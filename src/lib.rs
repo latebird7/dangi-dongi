@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::{fs};
+use std::fs;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
@@ -66,7 +66,10 @@ impl Users {
                 net_balance: 0.0,
             },
         );
-        println!("User {} added.", name);
+    }
+
+    pub fn list_users(&self) -> Vec<String> {
+        self.users.keys().cloned().collect()
     }
 
     pub fn remove_user(&mut self, name: String) {
@@ -266,3 +269,5 @@ fn calculate_fair_shares(transaction: &mut Transaction) {
         p.fair_share = Some(amount * (p.weight as f64) / (total_weight as f64));
     }
 }
+
+pub mod tui;

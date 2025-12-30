@@ -3,7 +3,7 @@ use std::io;
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style, Stylize};
-use ratatui::text::{Line, Span};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
@@ -11,6 +11,7 @@ pub struct App {
     exit: bool,
     input_mode: bool,
     user_input: String,
+    users: crate::Users,
 }
 
 pub fn start_tui() -> io::Result<()> {
@@ -19,6 +20,7 @@ pub fn start_tui() -> io::Result<()> {
         exit: false,
         input_mode: false,
         user_input: String::new(),
+        users: crate::Users::new(),
     };
 
     let app_result = app.run(&mut terminal);
@@ -59,7 +61,12 @@ impl App {
                 }
                 KeyCode::Enter => {
                     if self.input_mode {
+                        let name = self.user_input.trim();
+                        if !name.is_empty() {
+                            self.users.add_user(name.to_string());
+                        }
                         self.input_mode = false;
+                        self.user_input.clear();
                     }
                 }
                 KeyCode::Backspace => {
@@ -104,12 +111,10 @@ impl App {
             )
             .split(size);
 
-        let welcome = Paragraph::new(vec![
-            Line::from(vec![Span::styled(
-                "Welcome to Dangi-Dongi!",
-                Style::default().add_modifier(Modifier::BOLD),
-            )]),
-        ])
+        let welcome = Paragraph::new(vec![Line::from(vec![Span::styled(
+            "Welcome to Dangi-Dongi!",
+            Style::default().add_modifier(Modifier::BOLD),
+        )])])
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true });
         frame.render_widget(welcome, vertical_chunks[0]);
@@ -133,12 +138,19 @@ impl App {
                 top: 1,
                 bottom: 1,
             });
+        let user_list = self.users.list_users();
+        let mut lines: Vec<Line> = user_list.iter().map(|u| Line::from(Span::raw(u))).collect();
+
         let users_content = if self.input_mode {
-            Paragraph::new(vec![Line::from(format!("> {}", self.user_input.as_str()))])
+            lines.push(Line::from(format!("> {}", self.user_input.as_str())));
+            let text = Text::from(lines);
+            Paragraph::new(text)
                 .alignment(Alignment::Left)
                 .wrap(Wrap { trim: true })
         } else {
-            Paragraph::new(vec![Line::from("< press 'u' to add user >")])
+            lines.push(Line::from("< press 'u' to add user >"));
+            let text = Text::from(lines);
+            Paragraph::new(text)
                 .alignment(Alignment::Left)
                 .wrap(Wrap { trim: true })
         };
