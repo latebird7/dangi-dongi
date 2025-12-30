@@ -11,6 +11,8 @@ pub struct App {
     exit: bool,
     input_mode: bool,
     user_input: String,
+    transaction_amount_input_mode: bool,
+    transaction_amount_input: String,
     users: crate::Users,
 }
 
@@ -20,6 +22,8 @@ pub fn start_tui() -> io::Result<()> {
         exit: false,
         input_mode: false,
         user_input: String::new(),
+        transaction_amount_input_mode: false,
+        transaction_amount_input: String::new(),
         users: crate::Users::new(),
     };
 
@@ -56,8 +60,16 @@ impl App {
                     self.input_mode = true;
                     self.user_input.clear();
                 }
+                KeyCode::Char('t') => {
+                    // TODO: uncomment when transaction logic is completed
+                    // if self.users.list_users().len() > 1 {
+                    self.transaction_amount_input_mode = true;
+                    self.transaction_amount_input.clear();
+                    // }
+                }
                 KeyCode::Esc => {
                     self.input_mode = false;
+                    self.transaction_amount_input_mode = false;
                 }
                 KeyCode::Enter => {
                     if self.input_mode {
@@ -67,6 +79,13 @@ impl App {
                         }
                         self.input_mode = false;
                         self.user_input.clear();
+                    } else if self.transaction_amount_input_mode {
+                        let transaction = self.transaction_amount_input.trim();
+                        if !transaction.is_empty() {
+                            // Placeholder for adding transaction logic
+                        }
+                        self.transaction_amount_input_mode = false;
+                        self.transaction_amount_input.clear();
                     }
                 }
                 KeyCode::Backspace => {
@@ -77,6 +96,13 @@ impl App {
                 KeyCode::Char(c) => {
                     if self.input_mode {
                         self.user_input.push(c);
+                    } else if self.transaction_amount_input_mode {
+                        // Allow only digits and one decimal point
+                        if c.is_ascii_digit() {
+                            self.transaction_amount_input.push(c);
+                        } else if c == '.' && !self.transaction_amount_input.contains('.') {
+                            self.transaction_amount_input.push(c);
+                        }
                     }
                 }
                 _ => {}
@@ -183,14 +209,23 @@ impl App {
                 true,
             )
         };
-        let transaction_content = Paragraph::new(vec![Line::from(transaction_default_text)])
-            .add_modifier(if italic {
-                Modifier::ITALIC
-            } else {
-                Modifier::empty()
-            })
+        let transaction_content = if self.transaction_amount_input_mode {
+            Paragraph::new(Line::from(format!(
+                "> amount: {}",
+                self.transaction_amount_input.as_str()
+            )))
             .alignment(Alignment::Left)
-            .wrap(Wrap { trim: true });
+            .wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new(vec![Line::from(transaction_default_text)])
+                .add_modifier(if italic {
+                    Modifier::ITALIC
+                } else {
+                    Modifier::empty()
+                })
+                .alignment(Alignment::Left)
+                .wrap(Wrap { trim: true })
+        };
 
         let transaction_area = main_chunks[1];
         let transaction_inner = transactions_block.inner(transaction_area);
