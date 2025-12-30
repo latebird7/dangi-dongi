@@ -58,10 +58,10 @@ impl App {
         let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
             .horizontal_margin(2)
-            .vertical_margin(4)
+            .vertical_margin(2)
             .constraints(
                 [
-                    Constraint::Length(4), // Welcome message height
+                    Constraint::Length(2), // Welcome message height
                     Constraint::Min(0),    // Main area
                 ]
                 .as_ref(),
@@ -69,7 +69,6 @@ impl App {
             .split(size);
 
         let welcome = Paragraph::new(vec![
-            Line::from(""),
             Line::from(vec![Span::styled(
                 "Welcome to Dangi-Dongi!",
                 Style::default().add_modifier(Modifier::BOLD),
