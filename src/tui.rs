@@ -9,11 +9,17 @@ use ratatui::{DefaultTerminal, Frame};
 
 pub struct App {
     exit: bool,
+    input_mode: bool,
+    user_input: String,
 }
 
 pub fn start_tui() -> io::Result<()> {
     let mut terminal = ratatui::init();
-    let mut app = App { exit: false };
+    let mut app = App {
+        exit: false,
+        input_mode: false,
+        user_input: String::new(),
+    };
 
     let app_result = app.run(&mut terminal);
     ratatui::restore();
@@ -35,10 +41,40 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: crossterm::event::KeyEvent) -> io::Result<()> {
-        if key_event.kind == KeyEventKind::Press && key_event.code == KeyCode::Char('q') {
-            self.exit = true;
+        if key_event.kind == KeyEventKind::Press {
+            match key_event.code {
+                KeyCode::Char('q') => {
+                    if !self.input_mode {
+                        self.exit = true;
+                    } else {
+                        self.user_input.push('q');
+                    }
+                }
+                KeyCode::Char('u') => {
+                    self.input_mode = true;
+                    self.user_input.clear();
+                }
+                KeyCode::Esc => {
+                    self.input_mode = false;
+                }
+                KeyCode::Enter => {
+                    if self.input_mode {
+                        self.input_mode = false;
+                    }
+                }
+                KeyCode::Backspace => {
+                    if self.input_mode {
+                        self.user_input.pop();
+                    }
+                }
+                KeyCode::Char(c) => {
+                    if self.input_mode {
+                        self.user_input.push(c);
+                    }
+                }
+                _ => {}
+            }
         }
-
         Ok(())
     }
 
@@ -97,9 +133,15 @@ impl App {
                 top: 1,
                 bottom: 1,
             });
-        let users_content = Paragraph::new(vec![Line::from("< press 'a' to add user >")])
-            .alignment(Alignment::Left)
-            .wrap(Wrap { trim: true });
+        let users_content = if self.input_mode {
+            Paragraph::new(vec![Line::from(format!("> {}", self.user_input.as_str()))])
+                .alignment(Alignment::Left)
+                .wrap(Wrap { trim: true })
+        } else {
+            Paragraph::new(vec![Line::from("< press 'u' to add user >")])
+                .alignment(Alignment::Left)
+                .wrap(Wrap { trim: true })
+        };
 
         let users_area = main_chunks[0];
         let users_inner = users_block.inner(users_area);
