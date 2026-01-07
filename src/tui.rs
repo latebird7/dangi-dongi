@@ -12,6 +12,7 @@ enum InputMode {
     Normal,  // no input
     AddingUser,
     AddingTransactionAmount,
+    AddingTransactionPayer,
 }
 
 pub struct App {
@@ -20,6 +21,7 @@ pub struct App {
     user_input: String,
     transaction_amount_input: String,
     users: crate::Users,
+    selected_user_idx: usize, // For selecting user in AddingTransactionFrom
 }
 
 pub fn start_tui() -> io::Result<()> {
@@ -30,6 +32,7 @@ pub fn start_tui() -> io::Result<()> {
         user_input: String::new(),
         transaction_amount_input: String::new(),
         users: crate::Users::new(),
+        selected_user_idx: 0,
     };
 
     let app_result = app.run(&mut terminal);
@@ -55,25 +58,27 @@ impl App {
         if key_event.kind == KeyEventKind::Press {
             match key_event.code {
                 KeyCode::Char('q') => {
-                    if self.input_mode == InputMode::Normal {
+                    if self.input_mode != InputMode::AddingUser{
                         self.exit = true;
                     } else {
                         self.user_input.push('q');
                     }
                 }
                 KeyCode::Char('u') => {
-                    self.input_mode = InputMode::AddingUser;
-                    self.user_input.clear();
+                    if self.input_mode == InputMode::Normal {
+                        self.input_mode = InputMode::AddingUser;
+                        self.user_input.clear();
+                    }
                 }
                 KeyCode::Char('t') => {
-                    // TODO: uncomment when transaction logic is completed
-                    // if self.users.list_users().len() > 1 {
-                    self.input_mode = InputMode::AddingTransactionAmount;
-                    self.transaction_amount_input.clear();
-                    // }
+                    if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
+                        self.input_mode = InputMode::AddingTransactionAmount;
+                        self.transaction_amount_input.clear();
+                    }
                 }
                 KeyCode::Esc => {
                     self.input_mode = InputMode::Normal;
+                    self.selected_user_idx = 0;
                 }
                 KeyCode::Enter => {
                     match self.input_mode {
@@ -88,12 +93,39 @@ impl App {
                         InputMode::AddingTransactionAmount => {
                             let transaction = self.transaction_amount_input.trim();
                             if !transaction.is_empty() {
-                                // Placeholder for adding transaction logic
+                                self.input_mode = InputMode::AddingTransactionPayer;
+                                self.selected_user_idx = 0;
+                            }
+                        }
+                        InputMode::AddingTransactionPayer => {
+                            let user_list = self.users.list_users();
+                            if !user_list.is_empty() && self.selected_user_idx < user_list.len() {
+                                // TODO: Add logic for saving the transaction payer
                             }
                             self.input_mode = InputMode::Normal;
-                            self.transaction_amount_input.clear();
+                            self.selected_user_idx = 0;
                         }
                         _ => {}
+                    }
+                }
+                KeyCode::Up => {
+                    if self.input_mode == InputMode::AddingTransactionPayer {
+                        let user_count = self.users.list_users().len();
+                        if user_count > 0 {
+                            if self.selected_user_idx == 0 {
+                                self.selected_user_idx = user_count - 1;
+                            } else {
+                                self.selected_user_idx -= 1;
+                            }
+                        }
+                    }
+                }
+                KeyCode::Down => {
+                    if self.input_mode == InputMode::AddingTransactionPayer {
+                        let user_count = self.users.list_users().len();
+                        if user_count > 0 {
+                            self.selected_user_idx = (self.selected_user_idx + 1) % user_count;
+                        }
                     }
                 }
                 KeyCode::Backspace => match self.input_mode {
@@ -187,6 +219,25 @@ impl App {
                     .alignment(Alignment::Left)
                     .wrap(Wrap { trim: true })
             }
+            InputMode::AddingTransactionPayer => {
+                // Highlight the selected user
+                let mut lines: Vec<Line> = Vec::new();
+                for (i, u) in user_list.iter().enumerate() {
+                    if i == self.selected_user_idx {
+                        lines.push(Line::from(Span::styled(
+                            format!("> {} <", u),
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::raw(u)));
+                    }
+                }
+                lines.push(Line::from("< select payer of the transaction >"));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
             _ => {
                 lines.push(Line::from("< press 'u' to add user >"));
                 let text = Text::from(lines);
@@ -229,6 +280,11 @@ impl App {
                 "> amount: {}",
                 self.transaction_amount_input.as_str()
             )))
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true }),
+            InputMode::AddingTransactionPayer => Paragraph::new(Line::from(
+                "> payer: (select user from 'Users' panel)",
+            ))
             .alignment(Alignment::Left)
             .wrap(Wrap { trim: true }),
             _ => Paragraph::new(vec![Line::from(transaction_default_text)])
