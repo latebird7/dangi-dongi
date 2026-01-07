@@ -7,11 +7,17 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::{DefaultTerminal, Frame};
 
+#[derive(PartialEq)]
+enum InputMode {
+    Normal,  // no input
+    AddingUser,
+    AddingTransactionAmount,
+}
+
 pub struct App {
     exit: bool,
-    input_mode: bool,
+    input_mode: InputMode,
     user_input: String,
-    transaction_amount_input_mode: bool,
     transaction_amount_input: String,
     users: crate::Users,
 }
@@ -20,9 +26,8 @@ pub fn start_tui() -> io::Result<()> {
     let mut terminal = ratatui::init();
     let mut app = App {
         exit: false,
-        input_mode: false,
+        input_mode: InputMode::Normal,
         user_input: String::new(),
-        transaction_amount_input_mode: false,
         transaction_amount_input: String::new(),
         users: crate::Users::new(),
     };
@@ -50,53 +55,60 @@ impl App {
         if key_event.kind == KeyEventKind::Press {
             match key_event.code {
                 KeyCode::Char('q') => {
-                    if !self.input_mode {
+                    if self.input_mode == InputMode::Normal {
                         self.exit = true;
                     } else {
                         self.user_input.push('q');
                     }
                 }
                 KeyCode::Char('u') => {
-                    self.input_mode = true;
+                    self.input_mode = InputMode::AddingUser;
                     self.user_input.clear();
                 }
                 KeyCode::Char('t') => {
                     // TODO: uncomment when transaction logic is completed
                     // if self.users.list_users().len() > 1 {
-                    self.transaction_amount_input_mode = true;
+                    self.input_mode = InputMode::AddingTransactionAmount;
                     self.transaction_amount_input.clear();
                     // }
                 }
                 KeyCode::Esc => {
-                    self.input_mode = false;
-                    self.transaction_amount_input_mode = false;
+                    self.input_mode = InputMode::Normal;
                 }
                 KeyCode::Enter => {
-                    if self.input_mode {
-                        let name = self.user_input.trim();
-                        if !name.is_empty() {
-                            self.users.add_user(name.to_string());
+                    match self.input_mode {
+                        InputMode::AddingUser => {
+                            let name = self.user_input.trim();
+                            if !name.is_empty() {
+                                self.users.add_user(name.to_string());
+                            }
+                            self.input_mode = InputMode::Normal;
+                            self.user_input.clear();
                         }
-                        self.input_mode = false;
-                        self.user_input.clear();
-                    } else if self.transaction_amount_input_mode {
-                        let transaction = self.transaction_amount_input.trim();
-                        if !transaction.is_empty() {
-                            // Placeholder for adding transaction logic
+                        InputMode::AddingTransactionAmount => {
+                            let transaction = self.transaction_amount_input.trim();
+                            if !transaction.is_empty() {
+                                // Placeholder for adding transaction logic
+                            }
+                            self.input_mode = InputMode::Normal;
+                            self.transaction_amount_input.clear();
                         }
-                        self.transaction_amount_input_mode = false;
-                        self.transaction_amount_input.clear();
+                        _ => {}
                     }
                 }
-                KeyCode::Backspace => {
-                    if self.input_mode {
+                KeyCode::Backspace => match self.input_mode {
+                    InputMode::AddingUser => {
                         self.user_input.pop();
                     }
-                }
+                    InputMode::AddingTransactionAmount => {
+                        self.transaction_amount_input.pop();
+                    }
+                    _ => {}
+                },
                 KeyCode::Char(c) => {
-                    if self.input_mode {
+                    if self.input_mode == InputMode::AddingUser {
                         self.user_input.push(c);
-                    } else if self.transaction_amount_input_mode {
+                    } else if self.input_mode == InputMode::AddingTransactionAmount {
                         // Allow only digits and one decimal point
                         if c.is_ascii_digit() {
                             self.transaction_amount_input.push(c);
@@ -167,18 +179,21 @@ impl App {
         let user_list = self.users.list_users();
         let mut lines: Vec<Line> = user_list.iter().map(|u| Line::from(Span::raw(u))).collect();
 
-        let users_content = if self.input_mode {
-            lines.push(Line::from(format!("> {}", self.user_input.as_str())));
-            let text = Text::from(lines);
-            Paragraph::new(text)
-                .alignment(Alignment::Left)
-                .wrap(Wrap { trim: true })
-        } else {
-            lines.push(Line::from("< press 'u' to add user >"));
-            let text = Text::from(lines);
-            Paragraph::new(text)
-                .alignment(Alignment::Left)
-                .wrap(Wrap { trim: true })
+        let users_content = match self.input_mode {
+            InputMode::AddingUser => {
+                lines.push(Line::from(format!("> {}", self.user_input.as_str())));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
+            _ => {
+                lines.push(Line::from("< press 'u' to add user >"));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
         };
 
         let users_area = main_chunks[0];
@@ -209,22 +224,21 @@ impl App {
                 true,
             )
         };
-        let transaction_content = if self.transaction_amount_input_mode {
-            Paragraph::new(Line::from(format!(
+        let transaction_content = match self.input_mode {
+            InputMode::AddingTransactionAmount => Paragraph::new(Line::from(format!(
                 "> amount: {}",
                 self.transaction_amount_input.as_str()
             )))
             .alignment(Alignment::Left)
-            .wrap(Wrap { trim: true })
-        } else {
-            Paragraph::new(vec![Line::from(transaction_default_text)])
+            .wrap(Wrap { trim: true }),
+            _ => Paragraph::new(vec![Line::from(transaction_default_text)])
                 .add_modifier(if italic {
                     Modifier::ITALIC
                 } else {
                     Modifier::empty()
                 })
                 .alignment(Alignment::Left)
-                .wrap(Wrap { trim: true })
+                .wrap(Wrap { trim: true }),
         };
 
         let transaction_area = main_chunks[1];
