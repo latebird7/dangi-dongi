@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::io;
 
 use crossterm::event::{KeyCode, KeyEventKind};
@@ -9,10 +10,11 @@ use ratatui::{DefaultTerminal, Frame};
 
 #[derive(PartialEq)]
 enum InputMode {
-    Normal,  // no input
+    Normal, // no input
     AddingUser,
     AddingTransactionAmount,
     AddingTransactionPayer,
+    AddingTransactionEquality,
 }
 
 pub struct App {
@@ -22,6 +24,7 @@ pub struct App {
     transaction_amount_input: String,
     users: crate::Users,
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
+    equal_split_selected: bool,
 }
 
 pub fn start_tui() -> io::Result<()> {
@@ -33,6 +36,7 @@ pub fn start_tui() -> io::Result<()> {
         transaction_amount_input: String::new(),
         users: crate::Users::new(),
         selected_user_idx: 0,
+        equal_split_selected: true,
     };
 
     let app_result = app.run(&mut terminal);
@@ -58,7 +62,7 @@ impl App {
         if key_event.kind == KeyEventKind::Press {
             match key_event.code {
                 KeyCode::Char('q') => {
-                    if self.input_mode != InputMode::AddingUser{
+                    if self.input_mode != InputMode::AddingUser {
                         self.exit = true;
                     } else {
                         self.user_input.push('q');
@@ -102,9 +106,10 @@ impl App {
                             if !user_list.is_empty() && self.selected_user_idx < user_list.len() {
                                 // TODO: Add logic for saving the transaction payer
                             }
-                            self.input_mode = InputMode::Normal;
+                            self.input_mode = InputMode::AddingTransactionEquality;
                             self.selected_user_idx = 0;
                         }
+                        InputMode::AddingTransactionEquality => self.input_mode = InputMode::Normal,
                         _ => {}
                     }
                 }
@@ -126,6 +131,11 @@ impl App {
                         if user_count > 0 {
                             self.selected_user_idx = (self.selected_user_idx + 1) % user_count;
                         }
+                    }
+                }
+                KeyCode::Right | KeyCode::Left => {
+                    if self.input_mode == InputMode::AddingTransactionEquality {
+                        self.equal_split_selected = !self.equal_split_selected;
                     }
                 }
                 KeyCode::Backspace => match self.input_mode {
@@ -226,7 +236,9 @@ impl App {
                     if i == self.selected_user_idx {
                         lines.push(Line::from(Span::styled(
                             format!("> {} <", u),
-                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
                         )));
                     } else {
                         lines.push(Line::from(Span::raw(u)));
@@ -282,11 +294,41 @@ impl App {
             )))
             .alignment(Alignment::Left)
             .wrap(Wrap { trim: true }),
-            InputMode::AddingTransactionPayer => Paragraph::new(Line::from(
-                "> payer: (select user from 'Users' panel)",
-            ))
-            .alignment(Alignment::Left)
-            .wrap(Wrap { trim: true }),
+            InputMode::AddingTransactionPayer => {
+                Paragraph::new(Line::from("> payer: (select user from 'Users' panel)"))
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
+            InputMode::AddingTransactionEquality => {
+                if self.equal_split_selected {
+                    let lines = vec![Line::from(vec![
+                        Span::from("> split: "),
+                        Span::styled(
+                            "> equally <",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::from(" unequally"),
+                    ])];
+                    Paragraph::new(lines)
+                        .alignment(Alignment::Left)
+                        .wrap(Wrap { trim: true })
+                } else {
+                    let lines = vec![Line::from(vec![
+                        Span::from("> split: equally "),
+                        Span::styled(
+                            "> unequally <",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ])];
+                    Paragraph::new(lines)
+                        .alignment(Alignment::Left)
+                        .wrap(Wrap { trim: true })
+                }
+            }
             _ => Paragraph::new(vec![Line::from(transaction_default_text)])
                 .add_modifier(if italic {
                     Modifier::ITALIC
