@@ -85,7 +85,6 @@ impl Users {
         match self.users.get_mut(user) {
             Some(u) => {
                 u.amount_paid += amount;
-                println!("{} for user {} added.", amount, user);
                 self.transactions.push(Transaction {
                     amount,
                     participants: self
@@ -240,7 +239,7 @@ impl Users {
 
     pub fn save_to_file(&self, file_path: &str) {
         match serde_json::to_writer_pretty(std::fs::File::create(file_path).unwrap(), &self) {
-            Ok(_) => println!("Saved the info to the file."),
+            Ok(_) => {}
             Err(e) => println!("Error saving users: {}", e),
         }
     }

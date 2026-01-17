@@ -25,6 +25,7 @@ pub struct App {
     users: crate::Users,
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
     equal_split_selected: bool,
+    transaction_history: Vec<String>,
 }
 
 pub fn start_tui() -> io::Result<()> {
@@ -37,6 +38,7 @@ pub fn start_tui() -> io::Result<()> {
         users: crate::Users::new(),
         selected_user_idx: 0,
         equal_split_selected: true,
+        transaction_history: Vec::new(),
     };
 
     let app_result = app.run(&mut terminal);
@@ -78,6 +80,7 @@ impl App {
                     if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
                         self.input_mode = InputMode::AddingTransactionAmount;
                         self.transaction_amount_input.clear();
+                        self.selected_user_idx = 0;
                     }
                 }
                 KeyCode::Esc => {
@@ -98,7 +101,6 @@ impl App {
                             let transaction = self.transaction_amount_input.trim();
                             if !transaction.is_empty() {
                                 self.input_mode = InputMode::AddingTransactionPayer;
-                                self.selected_user_idx = 0;
                             }
                         }
                         InputMode::AddingTransactionPayer => {
@@ -107,9 +109,25 @@ impl App {
                                 // TODO: Add logic for saving the transaction payer
                             }
                             self.input_mode = InputMode::AddingTransactionEquality;
-                            self.selected_user_idx = 0;
                         }
-                        InputMode::AddingTransactionEquality => self.input_mode = InputMode::Normal,
+                        InputMode::AddingTransactionEquality => {
+                            let user_list = self.users.list_users();
+                            self.input_mode = InputMode::Normal;
+                            if self.equal_split_selected {
+                                let amount =
+                                    self.transaction_amount_input.trim().parse::<f64>().unwrap();
+                                self.users.record_payment(
+                                    user_list[self.selected_user_idx].as_str(),
+                                    amount,
+                                );
+                                self.transaction_history.push(format!(
+                                    "{} paid {} (equally split)",
+                                    user_list[self.selected_user_idx], amount
+                                ));
+                            } else {
+                                // todo: handle unequal split
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -329,14 +347,22 @@ impl App {
                         .wrap(Wrap { trim: true })
                 }
             }
-            _ => Paragraph::new(vec![Line::from(transaction_default_text)])
-                .add_modifier(if italic {
-                    Modifier::ITALIC
-                } else {
-                    Modifier::empty()
-                })
-                .alignment(Alignment::Left)
-                .wrap(Wrap { trim: true }),
+            _ => {
+                let mut lines: Vec<Line> = self
+                    .transaction_history
+                    .iter()
+                    .map(|u| Line::from(Span::raw(u)))
+                    .collect();
+                lines.push(Line::from(transaction_default_text));
+                Paragraph::new(lines)
+                    .add_modifier(if italic {
+                        Modifier::ITALIC
+                    } else {
+                        Modifier::empty()
+                    })
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
         };
 
         let transaction_area = main_chunks[1];
