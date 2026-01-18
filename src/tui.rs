@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::io;
 
 use crossterm::event::{KeyCode, KeyEventKind};

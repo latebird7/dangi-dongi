@@ -155,7 +155,6 @@ impl Users {
             println!("Not enough users to calculate payments.");
             return;
         }
-        let total: f64 = self.users.values().map(|u| u.amount_paid).sum();
 
         for (name, user) in &mut self.users {
             let mut total_fair_share = 0.0;
