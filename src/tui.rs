@@ -220,7 +220,14 @@ impl App {
         // Main area: horizontal split for Users and Transactions
         let main_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .constraints(
+                [
+                    Constraint::Percentage(35),
+                    Constraint::Percentage(35),
+                    Constraint::Percentage(30),
+                ]
+                .as_ref(),
+            )
             .split(vertical_chunks[1]);
 
         // For users
@@ -370,5 +377,29 @@ impl App {
 
         frame.render_widget(transactions_block, transaction_area);
         frame.render_widget(transaction_content, transaction_inner);
+
+        let dong_block = Block::default()
+            .borders(Borders::ALL)
+            .title(Span::styled(
+                " Dong ",
+                Style::default().add_modifier(Modifier::BOLD),
+            ))
+            .padding(Padding {
+                left: 1,
+                right: 1,
+                top: 1,
+                bottom: 1,
+            });
+
+        let dong_area = main_chunks[2];
+        let dong_inner = dong_block.inner(dong_area);
+        let dong_text = Text::from("Nothing to see here yet!");
+        let dong_text = Paragraph::new(dong_text)
+            .alignment(Alignment::Left)
+            .add_modifier(Modifier::ITALIC)
+            .wrap(Wrap { trim: true });
+        frame.render_widget(dong_block, dong_area);
+
+        frame.render_widget(dong_text, dong_inner);
     }
 }
