@@ -398,18 +398,24 @@ impl App {
         frame.render_widget(transactions_block, transaction_area);
         frame.render_widget(transaction_content, transaction_inner);
 
-        let dong_block = Block::default()
-            .borders(Borders::ALL)
-            .title(Span::styled(
-                " Dong ",
-                Style::default().add_modifier(Modifier::BOLD),
-            ))
-            .padding(Padding {
-                left: 1,
-                right: 1,
-                top: 1,
-                bottom: 1,
-            });
+        let dong_block = {
+            let mut block = Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(
+                    " Dong ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ))
+                .padding(Padding {
+                    left: 1,
+                    right: 1,
+                    top: 1,
+                    bottom: 1,
+                });
+            if !self.dong.is_empty() {
+                block = block.border_style(Style::default().fg(Color::Cyan));
+            }
+            block
+        };
 
         let dong = match self.dong.is_empty() {
             true => Paragraph::new(Line::from("Nothing to see here yet!"))
