@@ -25,6 +25,7 @@ pub struct App {
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
     equal_split_selected: bool,
     transaction_history: Vec<String>,
+    dong: Vec<String>,
 }
 
 pub fn start_tui() -> io::Result<()> {
@@ -38,6 +39,7 @@ pub fn start_tui() -> io::Result<()> {
         selected_user_idx: 0,
         equal_split_selected: true,
         transaction_history: Vec::new(),
+        dong: Vec::new(),
     };
 
     let app_result = app.run(&mut terminal);
@@ -123,6 +125,7 @@ impl App {
                                     "{} paid {} (equally split)",
                                     user_list[self.selected_user_idx], amount
                                 ));
+                                self.dong = self.users.calculate_total_payments().unwrap();
                             } else {
                                 // todo: handle unequal split
                             }
@@ -390,15 +393,22 @@ impl App {
                 bottom: 1,
             });
 
+        let dong = match self.dong.is_empty() {
+            true => Paragraph::new(Line::from("Nothing to see here yet!"))
+                .alignment(Alignment::Left)
+                .add_modifier(Modifier::ITALIC)
+                .wrap(Wrap { trim: true }),
+            false => {
+                let lines: Vec<Line> = self.dong.iter().map(|u| Line::from(Span::raw(u))).collect();
+                Paragraph::new(lines)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
+        };
+
         let dong_area = main_chunks[2];
         let dong_inner = dong_block.inner(dong_area);
-        let dong_text = Text::from("Nothing to see here yet!");
-        let dong_text = Paragraph::new(dong_text)
-            .alignment(Alignment::Left)
-            .add_modifier(Modifier::ITALIC)
-            .wrap(Wrap { trim: true });
         frame.render_widget(dong_block, dong_area);
-
-        frame.render_widget(dong_text, dong_inner);
+        frame.render_widget(dong, dong_inner);
     }
 }

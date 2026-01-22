@@ -150,11 +150,13 @@ impl Users {
         }
     }
 
-    pub fn calculate_total_payments(&mut self) {
+    pub fn calculate_total_payments(&mut self) -> Result<Vec<String>, String> {
         if self.users.len() < 2 {
             println!("Not enough users to calculate payments.");
-            return;
+            return Err("Not enough users".to_string());
         }
+
+        let mut results = Vec::new();
 
         for (name, user) in &mut self.users {
             let mut total_fair_share = 0.0;
@@ -206,7 +208,10 @@ impl Users {
                 let owed = -debtors[j].1;
                 let transfer = available.min(owed);
 
-                println!("{} pays {} {:.2}", debtors[j].0, creditors[i].0, transfer);
+                results.push(format!(
+                    "{} should pay {} {:.2}",
+                    debtors[j].0, creditors[i].0, transfer
+                ));
 
                 creditors[i].1 -= transfer;
                 debtors[j].1 += transfer; // debtors store negative values
@@ -224,6 +229,7 @@ impl Users {
                     u.net_balance = 0.0;
                 }
             }
+            Ok(results)
         }
     }
 
