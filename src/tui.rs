@@ -233,18 +233,27 @@ impl App {
             .split(vertical_chunks[1]);
 
         // For users
-        let users_block = Block::default()
-            .borders(Borders::ALL)
-            .title(Span::styled(
-                " Users ",
-                Style::default().add_modifier(Modifier::BOLD),
-            ))
-            .padding(Padding {
-                left: 1,
-                right: 1,
-                top: 1,
-                bottom: 1,
-            });
+        let users_block = {
+            let mut block = Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(
+                    " Users ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ))
+                .padding(Padding {
+                    left: 1,
+                    right: 1,
+                    top: 1,
+                    bottom: 1,
+                });
+            if matches!(
+                self.input_mode,
+                InputMode::AddingUser | InputMode::AddingTransactionPayer
+            ) {
+                block = block.border_style(Style::default().fg(Color::Yellow));
+            }
+            block
+        };
         let user_list = self.users.list_users();
         let mut lines: Vec<Line> = user_list.iter().map(|u| Line::from(Span::raw(u))).collect();
 
@@ -293,18 +302,27 @@ impl App {
         frame.render_widget(users_content, users_inner);
 
         // For transactions
-        let transactions_block = Block::default()
-            .borders(Borders::ALL)
-            .title(Span::styled(
-                " Transactions ",
-                Style::default().add_modifier(Modifier::BOLD),
-            ))
-            .padding(Padding {
-                left: 1,
-                right: 1,
-                top: 1,
-                bottom: 1,
-            });
+        let transactions_block = {
+            let mut block = Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(
+                    " Transactions ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ))
+                .padding(Padding {
+                    left: 1,
+                    right: 1,
+                    top: 1,
+                    bottom: 1,
+                });
+            if matches!(
+                self.input_mode,
+                InputMode::AddingTransactionAmount | InputMode::AddingTransactionEquality
+            ) {
+                block = block.border_style(Style::default().fg(Color::Yellow));
+            }
+            block
+        };
 
         let (transaction_default_text, italic) = if self.users.list_users().len() > 1 {
             ("< press 't' to add transaction >", false)
