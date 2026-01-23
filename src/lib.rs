@@ -239,7 +239,6 @@ impl Users {
             u.amount_paid = 0.0;
         }
         self.transactions.clear();
-        println!("All users have been settled up!");
     }
 
     pub fn save_to_file(&self, file_path: &str) {

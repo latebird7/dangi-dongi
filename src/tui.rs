@@ -84,6 +84,13 @@ impl App {
                         self.selected_user_idx = 0;
                     }
                 }
+                KeyCode::Char('s') => {
+                    if self.input_mode == InputMode::Normal && !self.dong.is_empty() {
+                        self.users.settle_up();
+                        self.transaction_history.clear();
+                        self.dong.clear();
+                    }
+                }
                 KeyCode::Esc => {
                     self.input_mode = InputMode::Normal;
                     self.selected_user_idx = 0;
@@ -423,7 +430,16 @@ impl App {
                 .add_modifier(Modifier::ITALIC)
                 .wrap(Wrap { trim: true }),
             false => {
-                let lines: Vec<Line> = self.dong.iter().map(|u| Line::from(Span::raw(u))).collect();
+                let other = vec![
+                    Line::from("----------"),
+                    Line::from("< press 's' to settle up payments >"),
+                ];
+                let lines: Vec<Line> = self
+                    .dong
+                    .iter()
+                    .map(|u| Line::from(Span::raw(u)))
+                    .chain(other)
+                    .collect();
                 Paragraph::new(lines)
                     .alignment(Alignment::Left)
                     .wrap(Wrap { trim: true })
