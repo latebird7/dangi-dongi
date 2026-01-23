@@ -72,7 +72,8 @@ impl App {
                     }
                 }
                 KeyCode::Char('u') => {
-                    if self.input_mode == InputMode::Normal {
+                    if self.input_mode == InputMode::Normal && self.transaction_history.is_empty() {
+                        // only allow adding users if no transactions has been recorded
                         self.input_mode = InputMode::AddingUser;
                         self.user_input.clear();
                     }
@@ -294,7 +295,9 @@ impl App {
                     .wrap(Wrap { trim: true })
             }
             _ => {
-                lines.push(Line::from("< press 'u' to add user >"));
+                if self.transaction_history.is_empty() {
+                    lines.push(Line::from("< press 'u' to add user >"));
+                }
                 let text = Text::from(lines);
                 Paragraph::new(text)
                     .alignment(Alignment::Left)
