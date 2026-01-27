@@ -80,7 +80,11 @@ impl App {
                     }
                 }
                 KeyCode::Char('r') => {
-                    if self.input_mode == InputMode::Normal && !self.users.list_users().is_empty() {
+                    if self.input_mode == InputMode::Normal
+                        && !self.users.list_users().is_empty()
+                        // only allow removing users if no transactions has been recorded
+                        && self.transaction_history.is_empty()
+                    {
                         self.input_mode = InputMode::RemovingUser;
                         self.selected_user_idx = 0;
                     }
