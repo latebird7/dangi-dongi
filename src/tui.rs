@@ -14,6 +14,7 @@ enum InputMode {
     AddingTransactionAmount,
     AddingTransactionPayer,
     AddingTransactionEquality,
+    RemovingUser,
 }
 
 pub struct App {
@@ -78,6 +79,12 @@ impl App {
                         self.user_input.clear();
                     }
                 }
+                KeyCode::Char('r') => {
+                    if self.input_mode == InputMode::Normal && !self.users.list_users().is_empty() {
+                        self.input_mode = InputMode::RemovingUser;
+                        self.selected_user_idx = 0;
+                    }
+                }
                 KeyCode::Char('t') => {
                     if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
                         self.input_mode = InputMode::AddingTransactionAmount;
@@ -119,6 +126,14 @@ impl App {
                             }
                             self.input_mode = InputMode::AddingTransactionEquality;
                         }
+                        InputMode::RemovingUser => {
+                            let user_list = self.users.list_users();
+                            if self.selected_user_idx < user_list.len() {
+                                self.users
+                                    .remove_user(user_list[self.selected_user_idx].clone());
+                            }
+                            self.input_mode = InputMode::Normal;
+                        }
                         InputMode::AddingTransactionEquality => {
                             let user_list = self.users.list_users();
                             self.input_mode = InputMode::Normal;
@@ -142,7 +157,9 @@ impl App {
                     }
                 }
                 KeyCode::Up => {
-                    if self.input_mode == InputMode::AddingTransactionPayer {
+                    if self.input_mode == InputMode::AddingTransactionPayer
+                        || self.input_mode == InputMode::RemovingUser
+                    {
                         let user_count = self.users.list_users().len();
                         if user_count > 0 {
                             if self.selected_user_idx == 0 {
@@ -154,7 +171,9 @@ impl App {
                     }
                 }
                 KeyCode::Down => {
-                    if self.input_mode == InputMode::AddingTransactionPayer {
+                    if self.input_mode == InputMode::AddingTransactionPayer
+                        || self.input_mode == InputMode::RemovingUser
+                    {
                         let user_count = self.users.list_users().len();
                         if user_count > 0 {
                             self.selected_user_idx = (self.selected_user_idx + 1) % user_count;
@@ -260,6 +279,9 @@ impl App {
             ) {
                 block = block.border_style(Style::default().fg(Color::Yellow));
             }
+            if matches!(self.input_mode, InputMode::RemovingUser) {
+                block = block.border_style(Style::default().fg(Color::Red));
+            }
             block
         };
         let user_list = self.users.list_users();
@@ -268,6 +290,25 @@ impl App {
         let users_content = match self.input_mode {
             InputMode::AddingUser => {
                 lines.push(Line::from(format!("> {}", self.user_input.as_str())));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
+            InputMode::RemovingUser => {
+                let mut lines: Vec<Line> = Vec::new();
+                for (i, u) in user_list.iter().enumerate() {
+                    if i == self.selected_user_idx {
+                        lines.push(Line::from(Span::styled(
+                            format!("> {} <", u),
+                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::raw(u)));
+                    }
+                }
+                lines.push(Line::from("----------"));
+                lines.push(Line::from("< select user to remove >"));
                 let text = Text::from(lines);
                 Paragraph::new(text)
                     .alignment(Alignment::Left)
@@ -318,8 +359,10 @@ impl App {
                 if self.transaction_history.is_empty() {
                     if !lines.is_empty() {
                         lines.push(Line::from("----------"));
+                        lines.push(Line::from("< press 'u' to add user | 'r' to remove user >"));
+                    } else {
+                        lines.push(Line::from("< press 'u' to add user >"));
                     }
-                    lines.push(Line::from("< press 'u' to add user >"));
                 }
                 let text = Text::from(lines);
                 Paragraph::new(text)

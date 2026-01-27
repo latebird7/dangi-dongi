@@ -78,7 +78,6 @@ impl Users {
             return;
         }
         self.users.remove(&name);
-        println!("User {} removed.", name);
     }
 
     pub fn record_payment(&mut self, user: &str, amount: f64) {
