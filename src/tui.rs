@@ -288,7 +288,27 @@ impl App {
                         lines.push(Line::from(Span::raw(u)));
                     }
                 }
+                lines.push(Line::from("----------"));
                 lines.push(Line::from("< select payer of the transaction >"));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
+            }
+            InputMode::AddingTransactionEquality => {
+                let mut lines: Vec<Line> = Vec::new();
+                for (i, u) in user_list.iter().enumerate() {
+                    if i == self.selected_user_idx {
+                        lines.push(Line::from(Span::styled(
+                            format!("{}", u),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::raw(u)));
+                    }
+                }
                 let text = Text::from(lines);
                 Paragraph::new(text)
                     .alignment(Alignment::Left)
@@ -296,6 +316,9 @@ impl App {
             }
             _ => {
                 if self.transaction_history.is_empty() {
+                    if !lines.is_empty() {
+                        lines.push(Line::from("----------"));
+                    }
                     lines.push(Line::from("< press 'u' to add user >"));
                 }
                 let text = Text::from(lines);
@@ -390,6 +413,9 @@ impl App {
                     .iter()
                     .map(|u| Line::from(Span::raw(u)))
                     .collect();
+                if !lines.is_empty() {
+                    lines.push(Line::from("----------"));
+                }
                 lines.push(Line::from(transaction_default_text));
                 Paragraph::new(lines)
                     .add_modifier(if italic {
