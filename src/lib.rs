@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct User {
+    name: String,
     amount_paid: f64,
     net_balance: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Users {
-    users: HashMap<String, User>,
+    users: Vec<User>,
     transactions: Vec<Transaction>,
 }
 
@@ -49,48 +49,46 @@ impl Participant {
 impl Users {
     pub fn new() -> Self {
         Users {
-            users: HashMap::new(),
+            users: Vec::new(),
             transactions: Vec::new(),
         }
     }
 
     pub fn add_user(&mut self, name: String) {
-        if self.users.contains_key(&name) {
+        if self.users.iter().any(|u| u.name == name) {
             println!("User {} already exists.", name);
             return;
         }
-        self.users.insert(
-            name.clone(),
-            User {
-                amount_paid: 0.0,
-                net_balance: 0.0,
-            },
-        );
+        self.users.push(User {
+            name,
+            amount_paid: 0.0,
+            net_balance: 0.0,
+        });
     }
 
     pub fn list_users(&self) -> Vec<String> {
-        self.users.keys().cloned().collect()
+        self.users.iter().map(|u| u.name.clone()).collect()
     }
 
     pub fn remove_user(&mut self, name: String) {
-        if !self.users.contains_key(&name) {
+        if !self.users.iter().any(|u| u.name == name) {
             println!("User {} does not exist.", name);
             return;
         }
-        self.users.remove(&name);
+        self.users.retain(|u| u.name != name);
     }
 
     pub fn record_payment(&mut self, user: &str, amount: f64) {
-        match self.users.get_mut(user) {
+        match self.users.iter_mut().find(|u| u.name == user) {
             Some(u) => {
                 u.amount_paid += amount;
                 self.transactions.push(Transaction {
                     amount,
                     participants: self
                         .users
-                        .keys()
-                        .map(|k| Participant {
-                            name: k.clone(),
+                        .iter()
+                        .map(|u| Participant {
+                            name: u.name.clone(),
                             weight: 1,
                             fair_share: Some(amount / self.users.len() as f64),
                         })
@@ -105,15 +103,16 @@ impl Users {
 
     pub fn record_weighted_payment(&mut self, user: &str, mut transaction: Transaction) {
         let amount = transaction.amount;
-        let participants_key = transaction
+        let participants: Vec<String> = transaction
             .participants
             .iter()
-            .map(|p| &p.name)
-            .collect::<Vec<&String>>();
-        let users_key = self.users.keys().collect::<Vec<&String>>();
+            .map(|p| p.name.clone())
+            .collect();
+        // let all_users = self.users.keys().collect::<Vec<&String>>();
+        let all_users: Vec<String> = self.users.iter().map(|u| u.name.clone()).collect();
 
-        if !(participants_key.len() == users_key.len()
-            && participants_key.iter().all(|k| users_key.contains(k)))
+        if !(participants.len() == all_users.len()
+            && participants.iter().all(|p| all_users.contains(p)))
         {
             println!("Participants are invalid.");
             return;
@@ -121,7 +120,7 @@ impl Users {
 
         calculate_fair_shares(&mut transaction);
 
-        match self.users.get_mut(user) {
+        match self.users.iter_mut().find(|u| u.name == user) {
             Some(u) => {
                 u.amount_paid += amount;
                 println!("{} for user {} added.", amount, user);
@@ -134,7 +133,7 @@ impl Users {
     }
 
     pub fn remove_payment(&mut self, user: &str, amount: f64) {
-        match self.users.get_mut(user) {
+        match self.users.iter_mut().find(|u| u.name == user) {
             Some(u) => {
                 u.amount_paid -= amount;
                 if u.amount_paid < 0.0 {
@@ -157,13 +156,13 @@ impl Users {
 
         let mut results = Vec::new();
 
-        for (name, user) in &mut self.users {
+        for user in &mut self.users {
             let mut total_fair_share = 0.0;
             for transaction in &self.transactions {
                 total_fair_share += transaction
                     .participants
                     .iter()
-                    .find(|p| p.name == *name)
+                    .find(|p| p.name == user.name)
                     .unwrap()
                     .fair_share
                     .unwrap_or(0.0);
@@ -171,14 +170,26 @@ impl Users {
             user.net_balance = user.amount_paid - total_fair_share;
         }
 
+        // for transaction in &self.transactions {
+        //     for participant in &transaction.participants {
+        //         let participant_name = &participant.name;
+        //         let fair_share = &participant.fair_share.unwrap_or(0.0);
+        //         for (name, user) in &mut self.users {
+        //             if name == participant_name {
+        //                 user.net_balance += user.amount_paid - fair_share;
+        //             }
+        //         }
+        //     }
+        // }
+
         {
             let eps = 1e-6;
             let mut creditors: Vec<(String, f64)> = self
                 .users
                 .iter()
-                .filter_map(|(name, u)| {
-                    if u.net_balance > eps {
-                        Some((name.clone(), u.net_balance))
+                .filter_map(|user| {
+                    if user.net_balance > eps {
+                        Some((user.name.clone(), user.net_balance))
                     } else {
                         None
                     }
@@ -188,9 +199,9 @@ impl Users {
             let mut debtors: Vec<(String, f64)> = self
                 .users
                 .iter()
-                .filter_map(|(name, u)| {
-                    if u.net_balance < -eps {
-                        Some((name.clone(), u.net_balance))
+                .filter_map(|user| {
+                    if user.net_balance < -eps {
+                        Some((user.name.clone(), user.net_balance))
                     } else {
                         None
                     }
@@ -223,9 +234,9 @@ impl Users {
                 }
             }
 
-            for (_, u) in &mut self.users {
-                if u.net_balance.abs() <= eps {
-                    u.net_balance = 0.0;
+            for user in &mut self.users {
+                if user.net_balance.abs() <= eps {
+                    user.net_balance = 0.0;
                 }
             }
             Ok(results)
@@ -233,9 +244,9 @@ impl Users {
     }
 
     pub fn settle_up(&mut self) {
-        for (_, u) in &mut self.users {
-            u.net_balance = 0.0;
-            u.amount_paid = 0.0;
+        for user in &mut self.users {
+            user.net_balance = 0.0;
+            user.amount_paid = 0.0;
         }
         self.transactions.clear();
     }
