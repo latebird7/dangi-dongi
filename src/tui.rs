@@ -15,6 +15,7 @@ enum InputMode {
     AddingTransactionPayer,
     AddingTransactionEquality,
     RemovingUser,
+    RemovingTransaction,
 }
 
 pub struct App {
@@ -24,6 +25,7 @@ pub struct App {
     transaction_amount_input: String,
     users: crate::Users,
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
+    selected_transaction_idx: usize, // For selecting transaction in RemovingTransaction
     equal_split_selected: bool,
     transaction_history: Vec<String>,
     dong: Vec<String>,
@@ -38,6 +40,7 @@ pub fn start_tui() -> io::Result<()> {
         transaction_amount_input: String::new(),
         users: crate::Users::new(),
         selected_user_idx: 0,
+        selected_transaction_idx: 0,
         equal_split_selected: true,
         transaction_history: Vec::new(),
         dong: Vec::new(),
@@ -80,13 +83,16 @@ impl App {
                     }
                 }
                 KeyCode::Char('r') => {
-                    if self.input_mode == InputMode::Normal
-                        && !self.users.list_users().is_empty()
-                        // only allow removing users if no transactions has been recorded
-                        && self.transaction_history.is_empty()
-                    {
-                        self.input_mode = InputMode::RemovingUser;
-                        self.selected_user_idx = 0;
+                    if self.input_mode == InputMode::Normal && !self.users.list_users().is_empty() {
+                        // Only allow removing users if no transactions has been recorded
+                        // Otherwise, allow removing transactions
+                        if self.transaction_history.is_empty() {
+                            self.input_mode = InputMode::RemovingUser;
+                            self.selected_user_idx = 0;
+                        } else {
+                            self.input_mode = InputMode::RemovingTransaction;
+                            self.selected_transaction_idx = 0;
+                        }
                     }
                 }
                 KeyCode::Char('t') => {
@@ -157,6 +163,15 @@ impl App {
                                 // todo: handle unequal split
                             }
                         }
+                        InputMode::RemovingTransaction => {
+                            self.users
+                                .remove_payment_by_index(self.selected_transaction_idx);
+                            self.transaction_history
+                                .remove(self.selected_transaction_idx);
+                            self.selected_transaction_idx = 0;
+                            self.dong = self.users.calculate_total_payments().unwrap();
+                            self.input_mode = InputMode::Normal;
+                        }
                         _ => {}
                     }
                 }
@@ -172,6 +187,15 @@ impl App {
                                 self.selected_user_idx -= 1;
                             }
                         }
+                    } else if self.input_mode == InputMode::RemovingTransaction {
+                        let transaction_count = self.transaction_history.len();
+                        if transaction_count > 0 {
+                            if self.selected_transaction_idx == 0 {
+                                self.selected_transaction_idx = transaction_count - 1;
+                            } else {
+                                self.selected_transaction_idx -= 1;
+                            }
+                        }
                     }
                 }
                 KeyCode::Down => {
@@ -181,6 +205,12 @@ impl App {
                         let user_count = self.users.list_users().len();
                         if user_count > 0 {
                             self.selected_user_idx = (self.selected_user_idx + 1) % user_count;
+                        }
+                    } else if self.input_mode == InputMode::RemovingTransaction {
+                        let transaction_count = self.transaction_history.len();
+                        if transaction_count > 0 {
+                            self.selected_transaction_idx =
+                                (self.selected_transaction_idx + 1) % transaction_count;
                         }
                     }
                 }
@@ -401,17 +431,26 @@ impl App {
             ) {
                 block = block.border_style(Style::default().fg(Color::Yellow));
             }
+            if matches!(self.input_mode, InputMode::RemovingTransaction) {
+                block = block.border_style(Style::default().fg(Color::Red));
+            }
             block
         };
 
-        let (transaction_default_text, italic) = if self.users.list_users().len() > 1 {
-            ("< press 't' to add transaction >", false)
-        } else {
-            (
-                "Please add at least two users to start recording transactions.",
-                true,
-            )
-        };
+        let (transaction_default_text, italic) =
+            if self.users.list_users().len() > 1 && self.transaction_history.is_empty() {
+                ("< press 't' to add transaction >", false)
+            } else if self.users.list_users().len() > 1 && self.transaction_history.len() > 0 {
+                (
+                    "< press 't' to add transaction | 'r' to remove transaction >",
+                    false,
+                )
+            } else {
+                (
+                    "Please add at least two users to start recording transactions.",
+                    true,
+                )
+            };
         let transaction_content = match self.input_mode {
             InputMode::AddingTransactionAmount => Paragraph::new(Line::from(format!(
                 "> amount: {}",
@@ -453,6 +492,25 @@ impl App {
                         .alignment(Alignment::Left)
                         .wrap(Wrap { trim: true })
                 }
+            }
+            InputMode::RemovingTransaction => {
+                let mut lines: Vec<Line> = Vec::new();
+                for (i, u) in self.transaction_history.iter().enumerate() {
+                    if i == self.selected_transaction_idx {
+                        lines.push(Line::from(Span::styled(
+                            format!("> {} <", u),
+                            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        )));
+                    } else {
+                        lines.push(Line::from(Span::raw(u)));
+                    }
+                }
+                lines.push(Line::from("----------"));
+                lines.push(Line::from("< select transaction to remove >"));
+                let text = Text::from(lines);
+                Paragraph::new(text)
+                    .alignment(Alignment::Left)
+                    .wrap(Wrap { trim: true })
             }
             _ => {
                 let mut lines: Vec<Line> = self
