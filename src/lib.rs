@@ -24,13 +24,15 @@ pub struct Participant {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Transaction {
     amount: f64,
+    payer: String,
     participants: Vec<Participant>,
 }
 
 impl Transaction {
-    pub fn new(amount: f64, participants: Vec<Participant>) -> Self {
+    pub fn new(amount: f64, payer: String, participants: Vec<Participant>) -> Self {
         Transaction {
             amount,
+            payer,
             participants,
         }
     }
@@ -84,6 +86,7 @@ impl Users {
                 u.amount_paid += amount;
                 self.transactions.push(Transaction {
                     amount,
+                    payer: user.to_string(),
                     participants: self
                         .users
                         .iter()
@@ -146,6 +149,25 @@ impl Users {
                 println!("User {} not found.", user);
             }
         }
+    }
+
+    pub fn remove_payment_by_index(&mut self, index: usize) {
+        if index >= self.transactions.len() {
+            println!("Transaction index {} is out of bounds.", index);
+            return;
+        }
+        for user in &mut self.users {
+            if user.name == self.transactions[index].payer {
+                user.amount_paid -= self.transactions[index].amount;
+                if user.amount_paid < 0.0 {
+                    panic!(
+                        "Amount paid for user {} is negative after removing transaction. This should not happen.",
+                        self.transactions[index].payer
+                    );
+                }
+            }
+        }
+        self.transactions.remove(index);
     }
 
     pub fn calculate_total_payments(&mut self) -> Result<Vec<String>, String> {
