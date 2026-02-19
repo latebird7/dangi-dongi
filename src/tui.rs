@@ -11,6 +11,7 @@ use ratatui::{DefaultTerminal, Frame};
 enum InputMode {
     Normal, // no input
     AddingUser,
+    AddingTransactionPurpose,
     AddingTransactionAmount,
     AddingTransactionPayer,
     AddingTransactionEquality,
@@ -22,6 +23,7 @@ pub struct App {
     exit: bool,
     input_mode: InputMode,
     user_input: String,
+    transaction_purpose_input: String,
     transaction_amount_input: String,
     users: crate::Users,
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
@@ -37,6 +39,7 @@ pub fn start_tui() -> io::Result<()> {
         exit: false,
         input_mode: InputMode::Normal,
         user_input: String::new(),
+        transaction_purpose_input: String::new(),
         transaction_amount_input: String::new(),
         users: crate::Users::new(),
         selected_user_idx: 0,
@@ -69,15 +72,19 @@ impl App {
         if key_event.kind == KeyEventKind::Press {
             match key_event.code {
                 KeyCode::Char('q') => {
-                    if self.input_mode != InputMode::AddingUser {
-                        self.exit = true;
-                    } else {
+                    if self.input_mode == InputMode::AddingUser {
                         self.user_input.push('q');
+                    } else if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push('q');
+                    } else {
+                        self.exit = true;
                     }
                 }
                 KeyCode::Char('u') => {
                     if self.input_mode == InputMode::AddingUser {
                         self.user_input.push('u');
+                    } else if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push('u');
                     }
                     if self.input_mode == InputMode::Normal && self.transaction_history.is_empty() {
                         // only allow adding users if no transactions has been recorded
@@ -100,15 +107,22 @@ impl App {
                     if self.input_mode == InputMode::AddingUser {
                         self.user_input.push('r');
                     }
+                    if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push('r');
+                    }
                 }
                 KeyCode::Char('t') => {
-                    if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
-                        self.input_mode = InputMode::AddingTransactionAmount;
-                        self.transaction_amount_input.clear();
-                        self.selected_user_idx = 0;
-                    }
                     if self.input_mode == InputMode::AddingUser {
                         self.user_input.push('t');
+                    }
+                    if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push('t');
+                    }
+                    if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
+                        self.input_mode = InputMode::AddingTransactionPurpose;
+                        self.transaction_purpose_input.clear();
+                        self.transaction_amount_input.clear();
+                        self.selected_user_idx = 0;
                     }
                 }
                 KeyCode::Char('s') => {
@@ -119,6 +133,9 @@ impl App {
                     }
                     if self.input_mode == InputMode::AddingUser {
                         self.user_input.push('s');
+                    }
+                    if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push('s');
                     }
                 }
                 KeyCode::Esc => {
@@ -134,6 +151,11 @@ impl App {
                             }
                             self.input_mode = InputMode::Normal;
                             self.user_input.clear();
+                        }
+                        InputMode::AddingTransactionPurpose => {
+                            if !self.transaction_purpose_input.trim().is_empty() {
+                                self.input_mode = InputMode::AddingTransactionAmount;
+                            }
                         }
                         InputMode::AddingTransactionAmount => {
                             let transaction = self.transaction_amount_input.trim();
@@ -167,8 +189,10 @@ impl App {
                                     amount,
                                 );
                                 self.transaction_history.push(format!(
-                                    "{} paid {} (equally split)",
-                                    user_list[self.selected_user_idx], amount
+                                    "{} paid {} for {} (equally split)",
+                                    user_list[self.selected_user_idx],
+                                    amount,
+                                    self.transaction_purpose_input,
                                 ));
                                 self.dong = self.users.calculate_total_payments().unwrap();
                             } else {
@@ -238,6 +262,9 @@ impl App {
                     InputMode::AddingTransactionAmount => {
                         self.transaction_amount_input.pop();
                     }
+                    InputMode::AddingTransactionPurpose => {
+                        self.transaction_purpose_input.pop();
+                    }
                     _ => {}
                 },
                 KeyCode::Char(c) => {
@@ -250,6 +277,8 @@ impl App {
                         } else if c == '.' && !self.transaction_amount_input.contains('.') {
                             self.transaction_amount_input.push(c);
                         }
+                    } else if self.input_mode == InputMode::AddingTransactionPurpose {
+                        self.transaction_purpose_input.push(c);
                     }
                 }
                 _ => {}
@@ -439,7 +468,9 @@ impl App {
                 });
             if matches!(
                 self.input_mode,
-                InputMode::AddingTransactionAmount | InputMode::AddingTransactionEquality
+                InputMode::AddingTransactionAmount
+                    | InputMode::AddingTransactionEquality
+                    | InputMode::AddingTransactionPurpose
             ) {
                 block = block.border_style(Style::default().fg(Color::Yellow));
             }
@@ -464,6 +495,12 @@ impl App {
                 )
             };
         let transaction_content = match self.input_mode {
+            InputMode::AddingTransactionPurpose => Paragraph::new(Line::from(format!(
+                "> what for: {}",
+                self.transaction_purpose_input.as_str()
+            )))
+            .alignment(Alignment::Left)
+            .wrap(Wrap { trim: true }),
             InputMode::AddingTransactionAmount => Paragraph::new(Line::from(format!(
                 "> amount: {}",
                 self.transaction_amount_input.as_str()
