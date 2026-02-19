@@ -76,6 +76,9 @@ impl App {
                     }
                 }
                 KeyCode::Char('u') => {
+                    if self.input_mode == InputMode::AddingUser {
+                        self.user_input.push('u');
+                    }
                     if self.input_mode == InputMode::Normal && self.transaction_history.is_empty() {
                         // only allow adding users if no transactions has been recorded
                         self.input_mode = InputMode::AddingUser;
@@ -94,6 +97,9 @@ impl App {
                             self.selected_transaction_idx = 0;
                         }
                     }
+                    if self.input_mode == InputMode::AddingUser {
+                        self.user_input.push('r');
+                    }
                 }
                 KeyCode::Char('t') => {
                     if self.input_mode == InputMode::Normal && self.users.list_users().len() > 1 {
@@ -101,12 +107,18 @@ impl App {
                         self.transaction_amount_input.clear();
                         self.selected_user_idx = 0;
                     }
+                    if self.input_mode == InputMode::AddingUser {
+                        self.user_input.push('t');
+                    }
                 }
                 KeyCode::Char('s') => {
                     if self.input_mode == InputMode::Normal && !self.dong.is_empty() {
                         self.users.settle_up();
                         self.transaction_history.clear();
                         self.dong.clear();
+                    }
+                    if self.input_mode == InputMode::AddingUser {
+                        self.user_input.push('s');
                     }
                 }
                 KeyCode::Esc => {
