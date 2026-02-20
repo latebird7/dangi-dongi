@@ -19,6 +19,30 @@ enum InputMode {
     RemovingTransaction,
 }
 
+#[derive(PartialEq)]
+enum SplitType {
+    Equal,
+    UnequalByShare,
+    UnequalByAmount,
+}
+
+impl SplitType {
+    fn next(&self) -> Self {
+        match self {
+            SplitType::Equal => SplitType::UnequalByShare,
+            SplitType::UnequalByShare => SplitType::UnequalByAmount,
+            SplitType::UnequalByAmount => SplitType::Equal,
+        }
+    }
+    fn previous(&self) -> Self {
+        match self {
+            SplitType::Equal => SplitType::UnequalByAmount,
+            SplitType::UnequalByShare => SplitType::Equal,
+            SplitType::UnequalByAmount => SplitType::UnequalByShare,
+        }
+    }
+}
+
 pub struct App {
     exit: bool,
     input_mode: InputMode,
@@ -28,7 +52,7 @@ pub struct App {
     users: crate::Users,
     selected_user_idx: usize, // For selecting user in AddingTransactionFrom
     selected_transaction_idx: usize, // For selecting transaction in RemovingTransaction
-    equal_split_selected: bool,
+    split_type: SplitType,
     transaction_history: Vec<String>,
     dong: Vec<String>,
 }
@@ -44,7 +68,7 @@ pub fn start_tui() -> io::Result<()> {
         users: crate::Users::new(),
         selected_user_idx: 0,
         selected_transaction_idx: 0,
-        equal_split_selected: true,
+        split_type: SplitType::Equal,
         transaction_history: Vec::new(),
         dong: Vec::new(),
     };
@@ -181,7 +205,7 @@ impl App {
                         InputMode::AddingTransactionEquality => {
                             let user_list = self.users.list_users();
                             self.input_mode = InputMode::Normal;
-                            if self.equal_split_selected {
+                            if self.split_type == SplitType::Equal {
                                 let amount =
                                     self.transaction_amount_input.trim().parse::<f64>().unwrap();
                                 self.users.record_payment(
@@ -232,6 +256,8 @@ impl App {
                                 self.selected_transaction_idx -= 1;
                             }
                         }
+                    } else if self.input_mode == InputMode::AddingTransactionEquality {
+                        self.split_type = self.split_type.previous();
                     }
                 }
                 KeyCode::Down => {
@@ -248,11 +274,8 @@ impl App {
                             self.selected_transaction_idx =
                                 (self.selected_transaction_idx + 1) % transaction_count;
                         }
-                    }
-                }
-                KeyCode::Right | KeyCode::Left => {
-                    if self.input_mode == InputMode::AddingTransactionEquality {
-                        self.equal_split_selected = !self.equal_split_selected;
+                    } else if self.input_mode == InputMode::AddingTransactionEquality {
+                        self.split_type = self.split_type.next();
                     }
                 }
                 KeyCode::Backspace => match self.input_mode {
@@ -512,36 +535,54 @@ impl App {
                     .alignment(Alignment::Left)
                     .wrap(Wrap { trim: true })
             }
-            InputMode::AddingTransactionEquality => {
-                if self.equal_split_selected {
-                    let lines = vec![Line::from(vec![
-                        Span::from("> split: "),
-                        Span::styled(
-                            "> equally <",
+            InputMode::AddingTransactionEquality => match self.split_type {
+                // todo: see if I can simplify it
+                SplitType::Equal => {
+                    let lines = vec![
+                        Line::styled(
+                            "> Split equally <",
                             Style::default()
                                 .fg(Color::Yellow)
                                 .add_modifier(Modifier::BOLD),
                         ),
-                        Span::from(" unequally"),
-                    ])];
-                    Paragraph::new(lines)
-                        .alignment(Alignment::Left)
-                        .wrap(Wrap { trim: true })
-                } else {
-                    let lines = vec![Line::from(vec![
-                        Span::from("> split: equally "),
-                        Span::styled(
-                            "> unequally <",
-                            Style::default()
-                                .fg(Color::Yellow)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                    ])];
+                        Line::from(" Split unequally by share"),
+                        Line::from(" Split unequally by amount"),
+                    ];
                     Paragraph::new(lines)
                         .alignment(Alignment::Left)
                         .wrap(Wrap { trim: true })
                 }
-            }
+                SplitType::UnequalByAmount => {
+                    let lines = vec![
+                        Line::from("Split equally"),
+                        Line::from("Split unequally by share"),
+                        Line::styled(
+                            "> Split unequally by amount <",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                    ];
+                    Paragraph::new(lines)
+                        .alignment(Alignment::Left)
+                        .wrap(Wrap { trim: true })
+                }
+                SplitType::UnequalByShare => {
+                    let lines = vec![
+                        Line::from("Split equally"),
+                        Line::styled(
+                            "> Split unequally by share <",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Line::from("Split unequally by amount"),
+                    ];
+                    Paragraph::new(lines)
+                        .alignment(Alignment::Left)
+                        .wrap(Wrap { trim: true })
+                }
+            },
             InputMode::RemovingTransaction => {
                 let mut lines: Vec<Line> = Vec::new();
                 for (i, u) in self.transaction_history.iter().enumerate() {
